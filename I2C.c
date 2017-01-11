@@ -1,6 +1,8 @@
-#include "MKL46Z4.h"
+﻿#include "MKL46Z4.h"
 
 #include "I2C.h"
+
+//żółwik działa ^^
 
 void i2c_Disable(I2C_Type* i2c){
   i2c->C1 &= ~I2C_C1_IICEN_MASK;
