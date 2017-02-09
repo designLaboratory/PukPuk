@@ -14,13 +14,17 @@ void I2C0_Init(){
 	PORTC->PCR[9] |= PORT_PCR_MUX(2);
 	PORTE->PCR[24] = PORT_PCR_MUX(5);
 	PORTE->PCR[25] = PORT_PCR_MUX(5);*/
+	SIM->SCGC5 |= SIM_SCGC5_PORTB_MASK;
+	PORTB->PCR[2] = PORT_PCR_MUX(2UL);
+	PORTB->PCR[3] = PORT_PCR_MUX(2UL);
+	
 	SIM->CLKDIV1 |= ((1u<<17) | (1u<<16)); 	//bus clock is 24/8 = 4MHz
 	SIM->SCGC4 |= SIM_SCGC4_I2C0_MASK; 		//podpiecie zegara do I2C0
-	I2C0->F   = 0x14;                     // baudrate: 300kHz
+	I2C0->F   = 0x16;                     // baudrate: ~98kHz
 	I2C_Enable(I2C0);
 	//NVIC_ClearPendingIRQ(I2C0_ALARM); 		//wyczyszczenie przerwania nvic
 	//NVIC_EnableIRQ(I2C0_ALARM);				//nvic enable
-	//I2C0->C1 |= I2C_C1_IICIE_MASK;
+	I2C0->C1 |= I2C_C1_IICIE_MASK;
 }
 
 void I2C_Disable(I2C_Type* i2c){
