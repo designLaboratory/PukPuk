@@ -9,11 +9,12 @@
 
 
 void I2C0_Init(){
-	SIM->SCGC5  |=  SIM_SCGC5_PORTC_MASK;	// Wlaczenie zegara dla portu C
+	//SIM->SCGC5  |=  SIM_SCGC5_PORTC_MASK;	// Wlaczenie zegara dla portu C
 	/*PORTC->PCR[8] |= PORT_PCR_MUX(2);
 	PORTC->PCR[9] |= PORT_PCR_MUX(2);
 	PORTE->PCR[24] = PORT_PCR_MUX(5);
 	PORTE->PCR[25] = PORT_PCR_MUX(5);*/
+	
 	SIM->SCGC5 |= SIM_SCGC5_PORTB_MASK;
 	PORTB->PCR[2] = PORT_PCR_MUX(2UL);
 	PORTB->PCR[3] = PORT_PCR_MUX(2UL);
@@ -21,7 +22,7 @@ void I2C0_Init(){
 	SIM->CLKDIV1 |= ((1u<<17) | (1u<<16)); 	//bus clock is 24/8 = 4MHz
 	SIM->SCGC4 |= SIM_SCGC4_I2C0_MASK; 		//podpiecie zegara do I2C0
 	I2C0->F   = 0x16;                     // baudrate: ~98kHz
-	I2C_Enable(I2C0);
+	I2C0->C1 |= I2C_C1_IICEN_MASK;
 	//NVIC_ClearPendingIRQ(I2C0_ALARM); 		//wyczyszczenie przerwania nvic
 	//NVIC_EnableIRQ(I2C0_ALARM);				//nvic enable
 	I2C0->C1 |= I2C_C1_IICIE_MASK;
@@ -101,10 +102,10 @@ uint8_t I2C_WriteByte( uint8_t data){
   // Inicjalizacja transferu danych
   I2C0->D = data;
   // Oczekiwanie na zakonczenie transferu
-  while((I2C0->S & I2C_S_IICIF_MASK) == 0);
+  while((I2C0->S & I2C_S_TCF_MASK) == 0);
   
   // Zwróc otrzymany bit ACK
-  return ((I2C0->S & I2C_S_RXAK_MASK) == I2C_S_RXAK_MASK ? I2C_NACK : I2C_ACK);
+  return ((I2C0->S & I2C_S_RXAK_MASK) == I2C_S_RXAK_MASK ? 0 : 1);
 }
 
 
@@ -112,8 +113,7 @@ void I2C0_IRQHandler(){
 	
 }
 
-void I2C_ReadMultiRegisters(unsigned char u8SlaveAddress, unsigned char u8RegisterAddress, unsigned char n, unsigned char *r)
-{
+void I2C_ReadMultiRegisters(unsigned char u8SlaveAddress, unsigned char u8RegisterAddress, unsigned char n, unsigned char *r){
 	char i;
 	
 	I2C0_Init();	          
@@ -158,8 +158,7 @@ void I2C_ReadMultiRegisters(unsigned char u8SlaveAddress, unsigned char u8Regist
 
 
 
-void I2C_WriteRegister(unsigned char u8SlaveAddress, unsigned char u8RegisterAddress, /*unsigned*/ char u8Data)
-{
+void I2C_WriteRegister(unsigned char u8SlaveAddress, unsigned char u8RegisterAddress, /*unsigned*/ char u8Data){
 	I2C0->C1 |= I2C_C1_TX_MASK;
     I2C0->C1 |= I2C_C1_MST_MASK;	          
 	I2C0->D = u8SlaveAddress << 1;									/* Send I2C device address with W/R bit = 0 */
@@ -179,8 +178,7 @@ void I2C_WriteRegister(unsigned char u8SlaveAddress, unsigned char u8RegisterAdd
     I2C0->C1 &= ~I2C_C1_TX_MASK;
 }
 
-char I2C_ReadRegister(unsigned char u8SlaveAddress, unsigned char u8RegisterAddress)
-{
+char I2C_ReadRegister(unsigned char u8SlaveAddress, unsigned char u8RegisterAddress){
 	char result;
 	  
 	I2C0->C1 |= I2C_C1_TX_MASK;
