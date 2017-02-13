@@ -1,11 +1,19 @@
+/////////////////////////////////////////////
+// Systemy Mikroprocesorowe II             //
+// Projekt zaliczeniowy                    //
+// Filip Polednia, Mateusz Kaczmarczyk     //
+// Elektronika III                         //
+// AGH                                     //
+/////////////////////////////////////////////
 
 #include "MKL46Z4.h"
 
-typedef enum{
+typedef enum{ //define enum data type
   I2C_ACK = 0,
   I2C_NACK = 1,
 } I2C_Acknowledge_Bit;
 
+//i2c functions
 void	I2C0_Init();
 void    I2C_Disable(I2C_Type* i2c);
 void    I2C_DisableInt(I2C_Type* i2c);
@@ -20,3 +28,7 @@ char	I2C_ReadRegister(unsigned char u8SlaveAddress, unsigned char u8RegisterAddr
 void 	I2C_WriteRegister(unsigned char u8SlaveAddress, unsigned char u8RegisterAddress, /*unsigned*/ char u8Data);
 void 	I2C_ReadMultiRegisters(unsigned char u8SlaveAddress, unsigned char u8RegisterAddress, unsigned char n, unsigned char *r);
 void 	I2C0_IRQHandler();
+
+//////////////////////////
+//         eof          //
+//////////////////////////
