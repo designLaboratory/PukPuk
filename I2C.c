@@ -14,7 +14,7 @@
 #define I2C0_ALARM (IRQn_Type) 8
 
 //i2c initialize
-void I2C0_Init(){
+void I2C0_Init(){          ////////////////////////////////////////////////////////////////////nwm wtf////////////////////////
 	//SIM->SCGC5  |=  SIM_SCGC5_PORTC_MASK;	// Wlaczenie zegara dla portu C
 	/*PORTC->PCR[8] |= PORT_PCR_MUX(2);
 	PORTC->PCR[9] |= PORT_PCR_MUX(2);
@@ -70,7 +70,6 @@ uint8_t I2C_ReadByte(I2C_Type* i2c, uint8_t ack){
 	if((i2c->SMB & I2C_SMB_FACK_MASK) != 0)   // send ACK/NACK bit if FACK == 1
 		i2c->C1 = (ack == I2C_NACK) ? i2c->C1 | I2C_C1_TXAK_MASK : i2c->C1 & ~I2C_C1_TXAK_MASK;
   
-	i2c->C1 |= I2C_C1_TX_MASK; //Przejscie w tryb transmisji
 	return i2c->D; //return received data
 }
 
@@ -97,7 +96,7 @@ void I2C_Stop(I2C_Type * i2c){
   }
 }
 
-//
+//write byte (with i2c module selection)
 uint8_t I2C_WriteByte(I2C_Type * i2c, uint8_t data){
   I2C_Start(i2c);   //transmission mode 
   
@@ -115,6 +114,7 @@ void I2C0_IRQHandler(){
 	//code here plox
 }
 
+/////////////////////tego nie wiem/////////////////////////////////////
 void I2C_ReadMultiRegisters(unsigned char u8SlaveAddress, unsigned char u8RegisterAddress, unsigned char n, unsigned char *r){
 	char i;
 	
