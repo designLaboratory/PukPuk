@@ -1,3 +1,11 @@
+/////////////////////////////////////////////
+// Systemy Mikroprocesorowe II             //
+// Projekt zaliczeniowy                    //
+// Filip Polednia, Mateusz Kaczmarczyk     //
+// Elektronika III                         //
+// AGH                                     //
+/////////////////////////////////////////////
+
 #include "i2c.h"
 #include "slcd.h"
 
@@ -122,3 +130,7 @@ void Calibrate (void)
 	I2C_WriteRegister(MMA_address, CTRL_REG5, 0x01);		// DRDY interrupt routed to INT1 - PTA14 
 	I2C_WriteRegister(MMA_address, CTRL_REG1, 0x3D);		// ODR = 1.56Hz, Reduced noise, Active mode	
 }
+
+////////////////////////////////
+//             eof            //
+////////////////////////////////
