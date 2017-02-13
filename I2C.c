@@ -210,3 +210,7 @@ char I2C_ReadRegister(unsigned char u8SlaveAddress, unsigned char u8RegisterAddr
 	result = I2C0->D;
 	return result;
 }
+
+/////////////////////////////////////
+//                eof              //
+/////////////////////////////////////
