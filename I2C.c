@@ -1,4 +1,10 @@
-
+/////////////////////////////////////////////
+// Systemy Mikroprocesorowe II             //
+// Projekt zaliczeniowy                    //
+// Filip Polednia, Mateusz Kaczmarczyk     //
+// Elektronika III                         //
+// AGH                                     //
+/////////////////////////////////////////////
 
 #include "MKL46Z4.h"
 
@@ -7,7 +13,7 @@
 
 #define I2C0_ALARM (IRQn_Type) 8
 
-
+//i2c initialize
 void I2C0_Init(){
 	//SIM->SCGC5  |=  SIM_SCGC5_PORTC_MASK;	// Wlaczenie zegara dla portu C
 	/*PORTC->PCR[8] |= PORT_PCR_MUX(2);
@@ -28,39 +34,40 @@ void I2C0_Init(){
 	I2C0->C1 |= I2C_C1_IICIE_MASK;
 }
 
+//disable i2c module
 void I2C_Disable(I2C_Type* i2c){
-	i2c->C1 &= ~I2C_C1_IICEN_MASK;
+	i2c->C1 &= ~I2C_C1_IICEN_MASK; //module enable mask - negation
 }
 
+//disable i2c interrupts
 void I2C_DisableInt(I2C_Type* i2c){
-	i2c->C1 &= ~I2C_C1_IICIE_MASK;
+	i2c->C1 &= ~I2C_C1_IICIE_MASK; //interrupt enable mask - negation
 }
 
+//enable i2c module
 void I2C_Enable(I2C_Type* i2c){
-	i2c->C1 |= I2C_C1_IICEN_MASK;
+	i2c->C1 |= I2C_C1_IICEN_MASK; //module enable mask
 }
 
+//enable i2c interrupts
 void I2C_EnableInt(I2C_Type* i2c){
-	i2c->C1 |= I2C_C1_IICIE_MASK;
+	i2c->C1 |= I2C_C1_IICIE_MASK; //interrupt enable mask
 }
 
+//read byte (with i2c module selection)
 uint8_t I2C_ReadByte(I2C_Type* i2c, uint8_t ack){
-	// Wybierz tryb odbioru
-	i2c->C1 &= ~I2C_C1_TX_MASK;
+	
+	i2c->C1 &= ~I2C_C1_TX_MASK; //transmission mode disable
   
-	// Przygotuj bit ACK/NACK jezeli FACK == 0
-	if((i2c->SMB & I2C_SMB_FACK_MASK) == 0)
+	if((i2c->SMB & I2C_SMB_FACK_MASK) == 0) // prepare ACK/NACK bit if FACK == 0
 		i2c->C1 = (ack == I2C_NACK) ? i2c->C1 | I2C_C1_TXAK_MASK : i2c->C1 & ~I2C_C1_TXAK_MASK;
   
-  // Wyczysc flage IICIF
-	i2c->S |= I2C_S_IICIF_MASK;
+	i2c->S |= I2C_S_IICIF_MASK; //clear IICIF flag
   
-  // Inicjalizacja transferu danych
-  //(void)i2c->D;										/// Nie wiem co to ma robic ????
-  // Oczekiwanie na zakonczenie transferu
+  // waiting for the end of transmission
 	while((i2c->S & I2C_S_IICIF_MASK) == 0);
   
-  // Wyslij bit ACK/NACK jezeli FACK == 1
+  // send ACK/NACK bit if FACK == 1
 	if((i2c->SMB & I2C_SMB_FACK_MASK) != 0)
 		i2c->C1 = (ack == I2C_NACK) ? i2c->C1 | I2C_C1_TXAK_MASK : i2c->C1 & ~I2C_C1_TXAK_MASK;
   
