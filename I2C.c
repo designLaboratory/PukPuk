@@ -64,60 +64,55 @@ uint8_t I2C_ReadByte(I2C_Type* i2c, uint8_t ack){
   
 	i2c->S |= I2C_S_IICIF_MASK; //clear IICIF flag
   
-  // waiting for the end of transmission
-	while((i2c->S & I2C_S_IICIF_MASK) == 0);
+	while((i2c->S & I2C_S_IICIF_MASK) == 0);  // waiting for the end of transmission
+
   
-  // send ACK/NACK bit if FACK == 1
-	if((i2c->SMB & I2C_SMB_FACK_MASK) != 0)
+	if((i2c->SMB & I2C_SMB_FACK_MASK) != 0)   // send ACK/NACK bit if FACK == 1
 		i2c->C1 = (ack == I2C_NACK) ? i2c->C1 | I2C_C1_TXAK_MASK : i2c->C1 & ~I2C_C1_TXAK_MASK;
   
-  // Przejscie w tryb transmisji
-	i2c->C1 |= I2C_C1_TX_MASK;
-  
-  // Zwróc odebrane dane
-	return i2c->D;
+	i2c->C1 |= I2C_C1_TX_MASK; //Przejscie w tryb transmisji
+	return i2c->D; //return received data
 }
 
+//i2c restart
 void I2C_Restart(I2C_Type* i2c){
-  i2c->C1 |= I2C_C1_RSTA_MASK;
+  i2c->C1 |= I2C_C1_RSTA_MASK; //restart i2c module
 }
 
+//i2c start (transmission mode)
 void I2C_Start(I2C_Type* i2c){
-	i2c->C1 |= I2C_C1_TX_MASK;
-	i2c->C1 |= I2C_C1_MST_MASK;
+	i2c->C1 |= I2C_C1_TX_MASK; //transmission mode 
+	i2c->C1 |= I2C_C1_MST_MASK; //master mode
 }
 
+//i2c stop 
 void I2C_Stop(I2C_Type * i2c){
-  // Wyczysc flage STOP
-  i2c->FLT |= I2C_FLT_STOPF_MASK;
   
-  // Wpisz bit stopu
-  i2c->C1 &= ~I2C_C1_MST_MASK;
-  // Oczekiwanie na zakonczenie transmisji bitu stopu
-  while((i2c->FLT & I2C_FLT_STOPF_MASK) == 0){
+  i2c->FLT |= I2C_FLT_STOPF_MASK; //clear STOP flag
+  
+  i2c->C1 &= ~I2C_C1_MST_MASK;  //send stop bit
+
+  while((i2c->FLT & I2C_FLT_STOPF_MASK) == 0){ // wait for the end of transmission of stop bit
     i2c->C1 &= ~I2C_C1_MST_MASK;
   }
 }
 
-uint8_t I2C_WriteByte( uint8_t data){
-  // Przejscie w tryb transmisji
-  I2C0->C1 |= I2C_C1_TX_MASK;
+//
+uint8_t I2C_WriteByte(I2C_Type * i2c, uint8_t data){
+  I2C_Start(i2c);   //transmission mode 
   
-  // Wyczysc flage IICIF
-  I2C0->S |= I2C_S_IICIF_MASK;
+  i2c->S |= I2C_S_TCF_MASK; //clear transmission complete flag 
   
-  // Inicjalizacja transferu danych
-  I2C0->D = data;
-  // Oczekiwanie na zakonczenie transferu
-  while((I2C0->S & I2C_S_TCF_MASK) == 0);
+  i2c->D = data; //send data
+	
+  while((i2c->S & I2C_S_TCF_MASK) == 0); //wait for the end of transmission
   
-  // Zwróc otrzymany bit ACK
-  return ((I2C0->S & I2C_S_RXAK_MASK) == I2C_S_RXAK_MASK ? 0 : 1);
+  return (i2c->S & I2C_S_RXAK_MASK) == I2C_S_RXAK_MASK ? 0 : 1); //return ack bit
 }
 
-
+//handler for i2c0 interrupt
 void I2C0_IRQHandler(){
-	
+	//code here plox
 }
 
 void I2C_ReadMultiRegisters(unsigned char u8SlaveAddress, unsigned char u8RegisterAddress, unsigned char n, unsigned char *r){
