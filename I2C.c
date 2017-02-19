@@ -7,210 +7,174 @@
 /////////////////////////////////////////////
 
 #include "MKL46Z4.h"
+#include "I2C.h"
 
-#include "i2c.h"
-#include "slcd.h"
-
-#define I2C0_ALARM (IRQn_Type) 8
-
-//i2c initialize
-void I2C0_Init(){          ////////////////////////////////////////////////////////////////////nwm wtf////////////////////////
-	//SIM->SCGC5  |=  SIM_SCGC5_PORTC_MASK;	// Wlaczenie zegara dla portu C
-	/*PORTC->PCR[8] |= PORT_PCR_MUX(2);
-	PORTC->PCR[9] |= PORT_PCR_MUX(2);
-	PORTE->PCR[24] = PORT_PCR_MUX(5);
-	PORTE->PCR[25] = PORT_PCR_MUX(5);*/
+void I2C_Init(I2C_Type* i2c)
+{
+	SIM -> SCGC5 |= SIM_SCGC5_PORTE_MASK;		//enabling port E clock
 	
-	SIM->SCGC5 |= SIM_SCGC5_PORTB_MASK;
-	PORTB->PCR[2] = PORT_PCR_MUX(2UL);
-	PORTB->PCR[3] = PORT_PCR_MUX(2UL);
+	SIM->SCGC4 |= SIM_SCGC4_I2C0_MASK;		//enabling I2C0 clock
+	PORTE->PCR[24] |= PORT_PCR_MUX(5);		//PORT mux selection for internal accelerometer
+	PORTE->PCR[25] |= PORT_PCR_MUX(5);		
+	PORTE->PCR[18] |= PORT_PCR_MUX(4);
+	PORTE->PCR[19] |= PORT_PCR_MUX(4);
 	
-	SIM->CLKDIV1 |= ((1u<<17) | (1u<<16)); 	//bus clock is 24/8 = 4MHz
-	SIM->SCGC4 |= SIM_SCGC4_I2C0_MASK; 		//podpiecie zegara do I2C0
-	I2C0->F   = 0x16;                     // baudrate: ~98kHz
-	I2C0->C1 |= I2C_C1_IICEN_MASK;
-	//NVIC_ClearPendingIRQ(I2C0_ALARM); 		//wyczyszczenie przerwania nvic
-	//NVIC_EnableIRQ(I2C0_ALARM);				//nvic enable
-	I2C0->C1 |= I2C_C1_IICIE_MASK;
-}
-
-//disable i2c module
-void I2C_Disable(I2C_Type* i2c){
-	i2c->C1 &= ~I2C_C1_IICEN_MASK; //module enable mask - negation
-}
-
-//disable i2c interrupts
-void I2C_DisableInt(I2C_Type* i2c){
-	i2c->C1 &= ~I2C_C1_IICIE_MASK; //interrupt enable mask - negation
-}
-
-//enable i2c module
-void I2C_Enable(I2C_Type* i2c){
-	i2c->C1 |= I2C_C1_IICEN_MASK; //module enable mask
-}
-
-//enable i2c interrupts
-void I2C_EnableInt(I2C_Type* i2c){
-	i2c->C1 |= I2C_C1_IICIE_MASK; //interrupt enable mask
-}
-
-//read byte (with i2c module selection)
-uint8_t I2C_ReadByte(I2C_Type* i2c, uint8_t ack){
+	//SIM->CLKDIV1 |= ((1u<<17) | (1u<<16)); 	//bus clock is 24/8 = 4MHz
+	i2c->F   = 0x14;                     		// baudrate: ~98kHz
+	I2C0->C1 = I2C_C1_IICEN_MASK;			//i2c module enable
 	
-	i2c->C1 &= ~I2C_C1_TX_MASK; //transmission mode disable
-  
-	if((i2c->SMB & I2C_SMB_FACK_MASK) == 0) // prepare ACK/NACK bit if FACK == 0
-		i2c->C1 = (ack == I2C_NACK) ? i2c->C1 | I2C_C1_TXAK_MASK : i2c->C1 & ~I2C_C1_TXAK_MASK;
-  
-	i2c->S |= I2C_S_IICIF_MASK; //clear IICIF flag
-  
-	while((i2c->S & I2C_S_IICIF_MASK) == 0);  // waiting for the end of transmission
-
-  
-	if((i2c->SMB & I2C_SMB_FACK_MASK) != 0)   // send ACK/NACK bit if FACK == 1
-		i2c->C1 = (ack == I2C_NACK) ? i2c->C1 | I2C_C1_TXAK_MASK : i2c->C1 & ~I2C_C1_TXAK_MASK;
-  
-	return i2c->D; //return received data
+	/////////////////
+	//  nvic init  //
+	/////////////////
+	//NVIC_ClearPendingIRQ(I2C0_ALARM); 		//clear nvic interrupts
+	//NVIC_EnableIRQ(I2C0_ALARM);			//nvic enable
+	//i2c->C1 |= I2C_C1_IICIE_MASK;			//enable i2c interrupts
 }
 
-//i2c restart
-void I2C_Restart(I2C_Type* i2c){
-  i2c->C1 |= I2C_C1_RSTA_MASK; //restart i2c module
+void I2C_Start(void)
+{
+	I2C0->C1 |= I2C_C1_TX_MASK; 			//enter tx mode
+	I2C0->C1 |= I2C_C1_MST_MASK;			//enter master mode -> generate start bit
 }
 
-//i2c start (transmission mode)
-void I2C_Start(I2C_Type* i2c){
-	i2c->C1 |= I2C_C1_TX_MASK; //transmission mode 
-	i2c->C1 |= I2C_C1_MST_MASK; //master mode
+void I2C_Stop(void)
+{
+	I2C0->C1 &= ~I2C_C1_MST_MASK;			//master mode off -> generate stop bit
+	I2C0->C1 &= ~I2C_C1_TX_MASK;			//turn off tx mode
 }
 
-//i2c stop 
-void I2C_Stop(I2C_Type * i2c){
-  
-  i2c->FLT |= I2C_FLT_STOPF_MASK; //clear STOP flag
-  
-  i2c->C1 &= ~I2C_C1_MST_MASK;  //send stop bit
-
-  while((i2c->FLT & I2C_FLT_STOPF_MASK) == 0){ // wait for the end of transmission of stop bit
-    i2c->C1 &= ~I2C_C1_MST_MASK;
-  }
-}
-
-//write byte (with i2c module selection)
-uint8_t I2C_WriteByte(I2C_Type * i2c, uint8_t data){
-  I2C_Start(i2c);   //transmission mode 
-  
-  i2c->S |= I2C_S_TCF_MASK; //clear transmission complete flag 
-  
-  i2c->D = data; //send data
-	
-  while((i2c->S & I2C_S_TCF_MASK) == 0); //wait for the end of transmission
-  
-  return (i2c->S & I2C_S_RXAK_MASK) == I2C_S_RXAK_MASK ? 0 : 1); //return ack bit
-}
-
-//handler for i2c0 interrupt
-void I2C0_IRQHandler(){
-	//code here plox
-}
-
-/////////////////////tego nie wiem/////////////////////////////////////
-void I2C_ReadMultiRegisters(unsigned char u8SlaveAddress, unsigned char u8RegisterAddress, unsigned char n, unsigned char *r){
-	char i;
-	
-	I2C0_Init();	          
-	I2C0->D = u8SlaveAddress << 1;									/* Send I2C device address with W/R bit = 0 */
-	// Oczekiwanie na zakonczenie transferu
-	while((I2C0->S & I2C_S_IICIF_MASK) == 0);										
-
-	I2C0->D = u8RegisterAddress;										/* Send register address */
-	// Oczekiwanie na zakonczenie transferu
-	while((I2C0->S & I2C_S_IICIF_MASK) == 0);
-
-	I2C0->C1 |= I2C_C1_RSTA_MASK;							//restart
-		
-	I2C0->D = (u8SlaveAddress << 1) | 0x01;							/* Send I2C device address this time with W/R bit = 1 */ 
-	// Oczekiwanie na zakonczenie transferu
-	while((I2C0->S & I2C_S_IICIF_MASK) == 0);	
-
-	I2C0->C1 &= ~I2C_C1_TX_MASK; 		//tryb odbierania
-	I2C0->C1 &= ~I2C_C1_TXAK_MASK;		//wlaczenie potwierdzen
-	
-	i = I2C0->D;
-	// Oczekiwanie na zakonczenie transferu
-	while((I2C0->S & I2C_S_IICIF_MASK) == 0);	
-	
-	for(i=0; i<n-2; i++) 
+void cpu_pause(int length)
+{
+	int temp;
+	for(temp=0; temp<length; temp++)
 	{
-	    *r = I2C0->D;
-	    r++;
-	    // Oczekiwanie na zakonczenie transferu
-		while((I2C0->S & I2C_S_IICIF_MASK) == 0);	
+			__nop();	//wait *lenght* number of cpu ticks
+	};
+}
+
+void I2C_Wait(void){
+	while((I2C0->S & I2C_S_IICIF_MASK)==0) {}	//wait for the end of transmission
+	I2C0->S |= I2C_S_IICIF_MASK;			//clear IICIF flag
+	}
+
+void I2C_restart(void){
+	I2C0->C1 |= I2C_C1_RSTA_MASK;	//restart i2c module
+}
+
+void I2C_rx_mode(void)
+{
+	I2C0->C1 &= ~I2C_C1_TX_MASK;	//turn off tx mode
+}
+
+void I2C_disable_ack(void)
+{
+       I2C0->C1 |= I2C_C1_TXAK_MASK;	//disable ack (0 - on, 1 - off)
+}
+
+void I2C_enable_ack(void)
+{
+        I2C0->C1 &= ~I2C_C1_TXAK_MASK;	//enable ack (0 - on, 1 - off)
+}
+
+void I2C_WriteRegister(unsigned char device_adress, unsigned char register_adress, char data)
+{
+	I2C_Start();				//switch to master -> send start bit	          
+	I2C0->D = device_adress << 1;		//send device adress (select slave). adress w/ left shift -> write bit = 0
+	I2C_Wait();				//wait for the end of transmission
+
+	I2C0->D = register_adress;		//send register adress
+	I2C_Wait();				//wait for the end of transmission
+
+	I2C0->D = data;				//send data
+	I2C_Wait();				//wait for the end of transmission
+
+	I2C_Stop();				//master off -> send stop bit
+
+    	cpu_pause(50);				//wait 50 cpu ticks
+}
+
+void I2C_WriteAdress(unsigned char device_adress)	//to check if we connected with device (checking ACK bit)
+{
+	I2C_Start();	          		//switch to master -> send start bit
+	I2C0->D = device_adress << 1;		//send device adress (select slave). adress w/ left shift -> write bit = 0
+	I2C_Wait();				//wait for the end of transmission
+
+	I2C_Stop();				//master off -> send stop bit
+
+    	cpu_pause(50);				//wait 50 cpu ticks
+}
+
+unsigned char I2C_ReadRegister(unsigned char device_adress, unsigned char register_adress)
+{
+	unsigned char reg;			//variable collecting received data
+
+	I2C_Start();	          		//switch to master -> send start bit
+	I2C0->D = device_adress << 1;		//send device adress (select slave). adress w/ left shift ->write bit = 0
+	I2C_Wait();				//wait for the end of transmission
+
+	I2C0->D = register_adress;		//send register adress
+	I2C_Wait();				//wait for the end of transmission
+
+	I2C_restart();
+
+	I2C0->D = (device_adress << 1) | 0x01;	//send device adress (select slave). adress w/ left shift +1 -> write bit = 1
+	I2C_Wait();				//wait for the end of transmission
+
+	I2C_rx_mode();				//enter receive mode
+	I2C_disable_ack();			//disable sending ack bit
+
+	reg = I2C0->D;			//read register & save in variable
+
+	I2C_Wait();				//wait for the end of transmission
+	I2C_Stop(); 				//master off -> send stop bit
+	reg = I2C0->D; 			//rewrite to variable
+
+	cpu_pause(50);				//wait 50 cpu ticks
+	return reg;			//return data
+}
+
+void I2C_ReadMultiRegisters(unsigned char device_adress, unsigned char register_adress, unsigned char number, unsigned char *save_adress)
+{
+	char i;					//loop iterator
+	
+	I2C_Start();	          		//switch to master -> send start bit
+	I2C0->D = device_adress << 1;		//send device adress (select slave). adress w/ left shift ->write bit = 0
+	I2C_Wait();				//wait for the end of transmission
+
+	I2C0->D = register_adress;		//send register adress
+	I2C_Wait();				//wait for the end of transmission
+
+	I2C_restart();
+
+	I2C0->D = (device_adress << 1) | 0x01;	//send device adress (select slave). adress w/ left shift +1 -> write bit = 1
+	I2C_Wait();				//wait for the end of transmission
+
+	I2C_rx_mode();				//enter receive mode
+	I2C_enable_ack();			//enable sending ack bit (*)
+
+	i = I2C0->D;				//read first send register
+	I2C_Wait();				//wait for the end of transmission
+
+	for(i = 0; i < number - 2; i++) 	//loop reading registers (**)
+	{
+	    *save_adress = I2C0->D;		//save received data to save_adress
+	    save_adress++;			//move save_adress
+	    I2C_Wait();				//wait for the end of transmission
 	}
 	
-	I2C0->C1 |= I2C_C1_TXAK_MASK;
-	*r = I2C0->D;
-	r++;
-	// Oczekiwanie na zakonczenie transferu
-	while((I2C0->S & I2C_S_IICIF_MASK) == 0);
-	I2C0->C1 &= ~I2C_C1_MST_MASK;
-    I2C0->C1 &= ~I2C_C1_TX_MASK;
-	*r = I2C0->D; 		
-}
-
-
-
-void I2C_WriteRegister(unsigned char u8SlaveAddress, unsigned char u8RegisterAddress, /*unsigned*/ char u8Data){
-	I2C0->C1 |= I2C_C1_TX_MASK;
-    I2C0->C1 |= I2C_C1_MST_MASK;	          
-	I2C0->D = u8SlaveAddress << 1;									/* Send I2C device address with W/R bit = 0 */
-	// Oczekiwanie na zakonczenie transferu
-	while((I2C0->S & I2C_S_TCF_MASK) == 0);
+	I2C_disable_ack();			//disable sending ack bit (***)
+	*save_adress = I2C0->D;			//save received data to save_adress (****)
+	save_adress++;				//move save_adress
+	I2C_Wait();				//wait for the end of transmission
 	
+	I2C_Stop();				//master off -> send stop bit
+	*save_adress = I2C0->D; 		//rewrite to variable
+	cpu_pause(50);				//wait 50 cpu ticks
 
-	I2C0->D = u8RegisterAddress;										/* Send register address */
-	// Oczekiwanie na zakonczenie transferu
-	while((I2C0->S & I2C_S_TCF_MASK) == 0);
+	//(*) every received register, we send ack bit to slave. after execution of loop (**), we disable ack (due to datasheet, it will turn off after next received data -> (****)).
+	//(**) when *number* = 2: loop is omitted, first register save after (***), ack will be disabled after next register (so slave will send next register), second data save from I2C0->D 	buffer, after stop bit.
+}	
 
-	I2C0->D = u8Data;												/* Send the data */
-	// Oczekiwanie na zakonczenie transferu
-	while((I2C0->S & I2C_S_TCF_MASK) == 0);
-
-	I2C0->C1 &= ~I2C_C1_MST_MASK;
-    I2C0->C1 &= ~I2C_C1_TX_MASK;
-}
-
-char I2C_ReadRegister(unsigned char u8SlaveAddress, unsigned char u8RegisterAddress){
-	char result;
-	  
-	I2C0->C1 |= I2C_C1_TX_MASK;
-    I2C0->C1 |= I2C_C1_MST_MASK;		          
-	I2C0->D = u8SlaveAddress << 1;									/* Send I2C device address with W/R bit = 0 */
-	// Oczekiwanie na zakonczenie transferu
-	while((I2C0->S & I2C_S_TCF_MASK) == 0);										
-
-	I2C0->D = u8RegisterAddress;										/* Send register address */
-	// Oczekiwanie na zakonczenie transferu
-	while((I2C0->S & I2C_S_IICIF_MASK) == 0);
-
-	I2C0->C1 |= I2C_C1_RSTA_MASK;
-	
-	I2C0->D = (u8SlaveAddress << 1) | 0x01;							/* Send I2C device address this time with W/R bit = 1 */ 
-	// Oczekiwanie na zakonczenie transferu
-	while((I2C0->S & I2C_S_IICIF_MASK) == 0);	
-
-	I2C0->C1 &= ~I2C_C1_TX_MASK;
-	I2C0->C1 |= I2C_C1_TXAK_MASK;
-
-	result = I2C0->D;												
-	// Oczekiwanie na zakonczenie transferu
-	while((I2C0->S & I2C_S_IICIF_MASK) == 0);
-	I2C0->C1 &= ~I2C_C1_MST_MASK;
-    I2C0->C1 &= ~I2C_C1_TX_MASK; 
-	result = I2C0->D;
-	return result;
-}
-
-/////////////////////////////////////
-//                eof              //
-/////////////////////////////////////
+/////////////////////////
+//	    EOF	       //
+/////////////////////////
