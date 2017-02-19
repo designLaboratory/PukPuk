@@ -10,25 +10,20 @@
 #include "I2C.h"
 
 void I2C_Init(I2C_Type* i2c)
-{
-	SIM -> SCGC5 |= SIM_SCGC5_PORTE_MASK;		//enabling port E clock
+{SIM -> SCGC5 |= SIM_SCGC5_PORTE_MASK;	//enabling port E clock
+	if (i2c == I2C0){
+		SIM->SCGC4 |= SIM_SCGC4_I2C0_MASK;	//enabling I2C0 clock
+		PORTE->PCR[24] |= PORT_PCR_MUX(5);	//PORT mux selection for internal accelerometer
+		PORTE->PCR[25] |= PORT_PCR_MUX(5);		
+	}
+	else {
+		SIM->SCGC4 |= SIM_SCGC4_I2C1_MASK;	//enabling I2C1 clock
+		PORTE->PCR[0] |= PORT_PCR_MUX(6);	//PORT mux selection
+		PORTE->PCR[1] |= PORT_PCR_MUX(6);
+	}
 	
-	SIM->SCGC4 |= SIM_SCGC4_I2C0_MASK;		//enabling I2C0 clock
-	PORTE->PCR[24] |= PORT_PCR_MUX(5);		//PORT mux selection for internal accelerometer
-	PORTE->PCR[25] |= PORT_PCR_MUX(5);		
-	PORTE->PCR[18] |= PORT_PCR_MUX(4);
-	PORTE->PCR[19] |= PORT_PCR_MUX(4);
-	
-	//SIM->CLKDIV1 |= ((1u<<17) | (1u<<16)); 	//bus clock is 24/8 = 4MHz
-	i2c->F   = 0x14;                     		// baudrate: ~98kHz
-	I2C0->C1 = I2C_C1_IICEN_MASK;			//i2c module enable
-	
-	/////////////////
-	//  nvic init  //
-	/////////////////
-	//NVIC_ClearPendingIRQ(I2C0_ALARM); 		//clear nvic interrupts
-	//NVIC_EnableIRQ(I2C0_ALARM);			//nvic enable
-	//i2c->C1 |= I2C_C1_IICIE_MASK;			//enable i2c interrupts
+	i2c->F   = 0x14;                     	// baudrate: ~98kHz
+	I2C0->C1 = I2C_C1_IICEN_MASK;
 }
 
 void I2C_Start(void)
