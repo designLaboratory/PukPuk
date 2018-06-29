@@ -1,7 +1,7 @@
 /////////////////////////////////////////////
 // Systemy Mikroprocesorowe II             //
 // Projekt zaliczeniowy                    //
-// Filip Polednia, Mateusz Kaczmarczyk     //
+// Filip P, Mateusz K     //
 // Elektronika III                         //
 // AGH                                     //
 /////////////////////////////////////////////
